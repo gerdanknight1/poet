@@ -1,0 +1,798 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="ko"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="utf-8" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width,initial-scale=1" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;PoetSim (Web)&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>body { background:#111; color:#eee; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>#log { white-space: pre-wrap; height:72vh; overflow:auto; padding:8px; border:1px solid #333; border-radius:10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>#bar { display:flex; gap:8px; margin-top:10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>input { flex:1; font-size:16px; padding:10px; background:#222; color:#fff; border:1px solid #333; border-radius:10px; outline:none; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>button { font-size:16px; padding:10px 14px; background:#2a2a2a; color:#fff; border:1px solid #333; border-radius:10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>button:active { transform: translateY(1px); }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.dim { color:#aaa; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="log"&gt;로딩중...\n&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="bar"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;input id="cmd" placeholder="명령 입력 후 엔터 (예: help)" autocomplete="off" autocapitalize="off" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;button id="send"&gt;Send&lt;/button&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const logEl = document.getElementById("log");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cmdEl = document.getElementById("cmd");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sendBtn = document.getElementById("send");</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>function uiLog(line="") {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>logEl.textContent += line + "\n";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>logEl.scrollTop = logEl.scrollHeight;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>function uiClear() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>logEl.textContent = "";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>let pyodide = null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let ready = false;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>async function boot() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiClear();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog("Pyodide 로딩중... (처음 10~30초 걸릴 수 있음)");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>pyodide = await loadPyodide();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>await pyodide.loadPackagesFromImports(""); // no-op, but keeps pattern</p>
+<p class="p1"><span class="Apple-converted-space">    </span>ready = true;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Python code (web-adapted)</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const py = String.raw`</p>
+<p class="p1">from __future__ import annotations</p>
+<p class="p1">import json</p>
+<p class="p1">import random</p>
+<p class="p1">from dataclasses import dataclass, asdict</p>
+<p class="p1">from datetime import datetime</p>
+<p class="p1">from typing import Dict, Any, List</p>
+<p class="p1">import js</p>
+<p class="p2"><br></p>
+<p class="p1"># ---------- Web I/O ----------</p>
+<p class="p1">def _log(s: str = ""):</p>
+<p class="p1"><span class="Apple-converted-space">    </span># JS uiLog로 한 줄씩 보냄</p>
+<p class="p1"><span class="Apple-converted-space">    </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>js.uiLog(str(s))</p>
+<p class="p1"><span class="Apple-converted-space">    </span>except Exception:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>pass</p>
+<p class="p2"><br></p>
+<p class="p1"># localStorage key</p>
+<p class="p1">LS_KEY = "poet_sim_save_v1"</p>
+<p class="p2"><br></p>
+<p class="p1">BLUEPRINT_TYPES = ["서정", "모더니즘", "리얼리즘", "포스트모더니즘", "신진철학"]</p>
+<p class="p2"><br></p>
+<p class="p1">PLATFORMS: Dict[str, Dict[str, Any]] = {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>"인스타": <span class="Apple-converted-space">      </span>{"label": "인스타", <span class="Apple-converted-space">      </span>"mult": 1.0, "min_q": 0},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>"신진문예지": <span class="Apple-converted-space">  </span>{"label": "신진 문예지", <span class="Apple-converted-space">  </span>"mult": 1.8, "min_q": 20},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>"중앙문예지": <span class="Apple-converted-space">  </span>{"label": "중앙 문예지", <span class="Apple-converted-space">  </span>"mult": 3.0, "min_q": 40},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>"대형출판사": <span class="Apple-converted-space">  </span>{"label": "대형 서점", <span class="Apple-converted-space">    </span>"mult": 8.0, "min_q": 60},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>"글로벌출판사": {"label": "글로벌 출판사", "mult": 16.0, "min_q": 80},</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">AWARDS = [</p>
+<p class="p1"><span class="Apple-converted-space">    </span>(50,<span class="Apple-converted-space">    </span>"지역 문학상", <span class="Apple-converted-space">  </span>{"exp_mult": 1.02, "exp_flat": 1, "inspire_plus1_prob": 0.02, "fame_mult": 1.01, "quality_flat": 0}),</p>
+<p class="p1"><span class="Apple-converted-space">    </span>(500, <span class="Apple-converted-space">  </span>"중앙 문학상", <span class="Apple-converted-space">  </span>{"exp_mult": 1.05, "exp_flat": 2, "inspire_plus1_prob": 0.05, "fame_mult": 1.05, "quality_flat": 1}),</p>
+<p class="p1"><span class="Apple-converted-space">    </span>(5000,<span class="Apple-converted-space">  </span>"대형 문학상", <span class="Apple-converted-space">  </span>{"exp_mult": 1.08, "exp_flat": 3, "inspire_plus1_prob": 0.08, "fame_mult": 1.20, "quality_flat": 3}),</p>
+<p class="p1"><span class="Apple-converted-space">    </span>(50000, "그랜드 문학상", {"exp_mult": 1.12, "exp_flat": 5, "inspire_plus1_prob": 0.12, "fame_mult": 1.60, "quality_flat": 8}),</p>
+<p class="p1">]</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def clamp(x: float, lo: float, hi: float) -&gt; float:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return max(lo, min(hi, x))</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def fmt1(x: float) -&gt; str:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return f"{x:.1f}"</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def now_str() -&gt; str:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return datetime.now().strftime("%Y-%m-%d %H:%M:%S")</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def exp_needed_for_next(level: int) -&gt; int:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return 20 + (level - 1) * 8</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def grade_for_quality(q: int) -&gt; str:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if q &lt; 20:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return "초고(거칠음)"</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if q &lt; 35:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return "습작(보통)"</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if q &lt; 50:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return "준작(괜찮음)"</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if q &lt; 70:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return "수작(좋음)"</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if q &lt; 90:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return "명작(매우 좋음)"</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return "걸작(레전드)"</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def base_fame_for_quality(q: int) -&gt; float:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>base = q / 10.0</p>
+<p class="p1"><span class="Apple-converted-space">    </span>jitter = random.uniform(-0.10, 0.10) * base</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return round(clamp(base + jitter, 0.0, 1e18), 1)</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def normalize_platform(raw: str) -&gt; str | None:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if not raw:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return None</p>
+<p class="p1"><span class="Apple-converted-space">    </span>s = raw.strip().replace(" ", "")</p>
+<p class="p1"><span class="Apple-converted-space">    </span>aliases = {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"인스타": "인스타",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"instagram": "인스타",</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>"신진문예지": "신진문예지",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"신진": "신진문예지",</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>"중앙문예지": "중앙문예지",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"중앙": "중앙문예지",</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>"대형출판사": "대형출판사",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"대형서점": "대형출판사",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"서점": "대형출판사",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"대형": "대형출판사",</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>"글로벌출판사": "글로벌출판사",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"글로벌": "글로벌출판사",</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return aliases.get(s)</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">def normalize_type(raw: str) -&gt; str | None:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if not raw:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return None</p>
+<p class="p1"><span class="Apple-converted-space">    </span>s = raw.strip().replace(" ", "")</p>
+<p class="p1"><span class="Apple-converted-space">    </span>aliases = {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"서정": "서정",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"모더니즘": "모더니즘",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"리얼리즘": "리얼리즘",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"포스트모더니즘": "포스트모더니즘",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"포모": "포스트모더니즘",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"신진철학": "신진철학",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>"철학": "신진철학",</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return aliases.get(s)</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">@dataclass</p>
+<p class="p1">class Work:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>id: int</p>
+<p class="p1"><span class="Apple-converted-space">    </span>title: str</p>
+<p class="p1"><span class="Apple-converted-space">    </span>wtype: str</p>
+<p class="p1"><span class="Apple-converted-space">    </span>quality: int</p>
+<p class="p1"><span class="Apple-converted-space">    </span>grade: str</p>
+<p class="p1"><span class="Apple-converted-space">    </span>created_at: str</p>
+<p class="p1"><span class="Apple-converted-space">    </span>published: bool = False</p>
+<p class="p1"><span class="Apple-converted-space">    </span>platform: str = ""</p>
+<p class="p1"><span class="Apple-converted-space">    </span>fame_gained: float = 0.0</p>
+<p class="p1"><span class="Apple-converted-space">    </span>published_at: str = ""</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">@dataclass</p>
+<p class="p1">class State:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>level: int = 1</p>
+<p class="p1"><span class="Apple-converted-space">    </span>exp: int = 0</p>
+<p class="p1"><span class="Apple-converted-space">    </span>fame: float = 0.0</p>
+<p class="p1"><span class="Apple-converted-space">    </span>blueprints: dict | None = None</p>
+<p class="p1"><span class="Apple-converted-space">    </span>works: list[dict] | None = None</p>
+<p class="p1"><span class="Apple-converted-space">    </span>awards_owned: dict | None = None</p>
+<p class="p1"><span class="Apple-converted-space">    </span>next_work_id: int = 1</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def __post_init__(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if self.blueprints is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.blueprints = {t: 0 for t in BLUEPRINT_TYPES}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>else:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>for t in BLUEPRINT_TYPES:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.blueprints.setdefault(t, 0)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if self.works is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.works = []</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if self.awards_owned is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.awards_owned = {str(cost): 0 for cost, _name, _fx in AWARDS}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>else:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>for cost, _name, _fx in AWARDS:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.awards_owned.setdefault(str(cost), 0)</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">class Game:</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def __init__(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s = State()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.archive_sort_mode = "new"</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.archive_page_size = 30</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def say(self, msg: str = ""):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>_log(msg)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- basics ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def help(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 명령어 ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("status <span class="Apple-converted-space">                        </span>: 상태 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("train<span class="Apple-converted-space">                          </span>: 수련(경험치)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("inspire<span class="Apple-converted-space">                        </span>: 영감 얻기(제작서)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("blueprints <span class="Apple-converted-space">                    </span>: 제작서 현황")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("write &lt;타입&gt; &lt;제목&gt; <span class="Apple-converted-space">            </span>: 작품 작성")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("works<span class="Apple-converted-space">                          </span>: 최근 작품 30개")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive<span class="Apple-converted-space">                        </span>: 전체 작품 아카이브")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("publish &lt;id&gt; &lt;플랫폼&gt; <span class="Apple-converted-space">          </span>: 작품 발표(조건 있음)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("platforms<span class="Apple-converted-space">                      </span>: 플랫폼/배율/조건 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("awards <span class="Apple-converted-space">                        </span>: 문학상 목록/가격 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("buy &lt;50|500|5000|50000&gt; <span class="Apple-converted-space">        </span>: 문학상 구매(패시브 누적)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("effects<span class="Apple-converted-space">                        </span>: 현재 패시브 총합 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("save / load<span class="Apple-converted-space">                    </span>: 저장 / 불러오기 (브라우저 localStorage)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("quit <span class="Apple-converted-space">                          </span>: 종료(웹에선 의미 없음)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("타입: " + ", ".join(BLUEPRINT_TYPES))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("플랫폼: 인스타 / 신진 문예지 / 중앙 문예지 / 대형 서점 / 글로벌 출판사")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("아카이브 도움: archive")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def status(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>need = exp_needed_for_next(self.s.level)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 상태 ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"레벨: {self.s.level}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"경험치: {self.s.exp}/{need} (다음 레벨까지 {max(0, need - self.s.exp)})")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"명성: {fmt1(self.s.fame)}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"작품 수: {len(self.s.works)}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("제작서:")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for t in BLUEPRINT_TYPES:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - {t}: {self.s.blueprints.get(t, 0)}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("문학상 보유:")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for cost, name, _fx in AWARDS:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>cnt = int(self.s.awards_owned.get(str(cost), 0))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - {name} ({cost}): {cnt}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def show_blueprints(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 제작서 보유 ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for t in BLUEPRINT_TYPES:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"{t}: {self.s.blueprints.get(t, 0)}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def show_platforms(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 발표 플랫폼 (배율 / 조건) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for _key, info in PLATFORMS.items():</p>
+<p class="p1"><span class="Apple-converted-space">            </span>label = info["label"]</p>
+<p class="p1"><span class="Apple-converted-space">            </span>mult = info["mult"]</p>
+<p class="p1"><span class="Apple-converted-space">            </span>min_q = info["min_q"]</p>
+<p class="p1"><span class="Apple-converted-space">            </span>cond = "제한 없음" if min_q &lt;= 0 else f"퀄리티 {min_q} 이상"</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"- {label}: x{mult} | 조건: {cond}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("예: publish 3 대형서점<span class="Apple-converted-space">  </span>(또는 publish 3 대형출판사 / 대형)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def show_awards(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 문학상 상점(반값 적용) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for cost, name, _fx in AWARDS:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"- {name} : {cost} 명성")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("buy 50 / buy 500 / buy 5000 / buy 50000")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("패시브 확인: effects")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- passives ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def compute_passives(self) -&gt; Dict[str, float]:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>exp_mult = 1.0</p>
+<p class="p1"><span class="Apple-converted-space">        </span>fame_mult = 1.0</p>
+<p class="p1"><span class="Apple-converted-space">        </span>exp_flat = 0.0</p>
+<p class="p1"><span class="Apple-converted-space">        </span>quality_flat = 0.0</p>
+<p class="p1"><span class="Apple-converted-space">        </span>inspire_plus1_prob = 0.0</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>for cost, _name, fx in AWARDS:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>cnt = int(self.s.awards_owned.get(str(cost), 0))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if cnt &lt;= 0:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>continue</p>
+<p class="p1"><span class="Apple-converted-space">            </span>exp_mult *= float(fx["exp_mult"]) ** cnt</p>
+<p class="p1"><span class="Apple-converted-space">            </span>fame_mult *= float(fx["fame_mult"]) ** cnt</p>
+<p class="p1"><span class="Apple-converted-space">            </span>exp_flat += float(fx["exp_flat"]) * cnt</p>
+<p class="p1"><span class="Apple-converted-space">            </span>quality_flat += float(fx["quality_flat"]) * cnt</p>
+<p class="p1"><span class="Apple-converted-space">            </span>inspire_plus1_prob += float(fx["inspire_plus1_prob"]) * cnt</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>inspire_plus1_prob = clamp(inspire_plus1_prob, 0.0, 0.95)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"exp_mult": exp_mult,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"fame_mult": fame_mult,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"exp_flat": exp_flat,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"quality_flat": quality_flat,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"inspire_plus1_prob": inspire_plus1_prob,</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def show_effects(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>fx = self.compute_passives()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 현재 패시브 총합 ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"수련 경험치 배율: x{fx['exp_mult']:.3f}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"수련 경험치 추가: +{int(fx['exp_flat'])}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"작품 퀄리티 추가: +{int(fx['quality_flat'])}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"발표 명성 배율: x{fx['fame_mult']:.3f}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"영감 추가 제작서(+1) 확률: {fx['inspire_plus1_prob']*100:.1f}%")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- save/load (localStorage) ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def save(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>data = json.dumps(asdict(self.s), ensure_ascii=False)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>js.localStorage.setItem(LS_KEY, data)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("저장 완료: (브라우저 localStorage)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>except Exception as e:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"저장 실패: {e}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def load(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>raw = js.localStorage.getItem(LS_KEY)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if raw is None:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("세이브 데이터가 없어. 먼저 save 해줘.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>data = json.loads(str(raw))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.s = State(**data)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("로드 완료. 이어서 진행한다.")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>except Exception as e:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"로드 실패: {e}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- actions ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def maybe_level_up(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>while True:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>need = exp_needed_for_next(self.s.level)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if self.s.exp &lt; need:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>break</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.s.exp -= need</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.s.level += 1</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"레벨업! -&gt; Lv.{self.s.level}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def train(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>fx = self.compute_passives()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>base_gain = random.randint(8, 14)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>gain = int(round(base_gain * fx["exp_mult"] + fx["exp_flat"]))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if gain &lt; 1:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>gain = 1</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.exp += gain</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"수련했다. 경험치 +{gain} (기본 {base_gain})")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.maybe_level_up()</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def inspire(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>fx = self.compute_passives()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>count = 1 + (1 if random.random() &lt; 0.25 else 0)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if random.random() &lt; fx["inspire_plus1_prob"]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>count += 1</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>gained_types = []</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for _ in range(count):</p>
+<p class="p1"><span class="Apple-converted-space">            </span>t = random.choice(BLUEPRINT_TYPES)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.s.blueprints[t] = self.s.blueprints.get(t, 0) + 1</p>
+<p class="p1"><span class="Apple-converted-space">            </span>gained_types.append(t)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>vibes = [</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"지하철 유리창에 비친 얼굴이 문장이 됐다.",</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"편의점 형광등 아래서 한 줄이 떠올랐다.",</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"새벽 알림 소리 사이로 리듬이 지나갔다.",</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"뉴스 헤드라인이 은근히 비유가 됐다.",</p>
+<p class="p1"><span class="Apple-converted-space">            </span>"낡은 메모장에서 제목이 먼저 튀어나왔다.",</p>
+<p class="p1"><span class="Apple-converted-space">        </span>]</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"영감을 얻었다. 제작서 +{count} ({', '.join(gained_types)})")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"<span class="Apple-converted-space">  </span>- {random.choice(vibes)}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def write(self, wtype_raw: str, title: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>wtype = normalize_type(wtype_raw)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if wtype is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("타입을 못 알아먹었어.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("가능 타입: " + ", ".join(BLUEPRINT_TYPES))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("예: write 서정 비 오는 날의 무릎")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>title = (title or "").strip()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not title:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("제목이 필요해. 예: write 리얼리즘 퇴근길의 먼지")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if self.s.blueprints.get(wtype, 0) &lt;= 0:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"'{wtype}' 제작서가 없어. inspire로 먼저 얻어.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.blueprints[wtype] -= 1</p>
+<p class="p1"><span class="Apple-converted-space">        </span>fx = self.compute_passives()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>q = sum(random.randint(6, 10) for _ in range(self.s.level)) + int(fx["quality_flat"])</p>
+<p class="p1"><span class="Apple-converted-space">        </span>g = grade_for_quality(q)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>w = Work(</p>
+<p class="p1"><span class="Apple-converted-space">            </span>id=self.s.next_work_id,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>title=title,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>wtype=wtype,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>quality=q,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>grade=g,</p>
+<p class="p1"><span class="Apple-converted-space">            </span>created_at=now_str(),</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.next_work_id += 1</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.works.append(asdict(w))</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("작품을 썼다.")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f" - ID: {w.id}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f" - 타입: {w.wtype}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f" - 제목: {w.title}")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f" - 퀄리티: {w.quality} ({w.grade})")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def _format_work_line(self, wd: dict) -&gt; str:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>pub = "발표됨" if wd.get("published") else "미발표"</p>
+<p class="p1"><span class="Apple-converted-space">        </span>extra = ""</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if wd.get("published"):</p>
+<p class="p1"><span class="Apple-converted-space">            </span>extra = f" | {wd.get('platform','')} | 명성 +{fmt1(wd.get('fame_gained', 0.0))}"</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>f"[{wd['id']}] ({wd.get('wtype','?')}) {wd['title']} | "</p>
+<p class="p1"><span class="Apple-converted-space">            </span>f"Q{wd['quality']} {wd['grade']} | {pub}{extra}"</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def list_works_recent(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not self.s.works:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("아직 작품이 없어. inspire → write로 만들어봐.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 작품 목록(최근 30개) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in self.s.works[-30:]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(self._format_work_line(wd))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if len(self.s.works) &gt; 30:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"(최근 30개만 표시됨. 총 {len(self.s.works)}개)<span class="Apple-converted-space">  </span>→ 전체는 archive")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def publish(self, wid: int, platform_raw: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>pkey = normalize_platform(platform_raw)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if pkey is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("플랫폼을 못 알아먹었어. platforms로 목록을 확인해줘.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>pinfo = PLATFORMS[pkey]</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in self.s.works:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if wd["id"] != wid:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>continue</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>if wd.get("published"):</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("이미 발표한 작품이야.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>q = int(wd["quality"])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>min_q = int(pinfo["min_q"])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if q &lt; min_q:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("발표 실패: 플랫폼 조건을 못 맞췄어.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f" - 플랫폼: {pinfo['label']} (필요 퀄리티 {min_q}+)")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f" - 현재 퀄리티: {q}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>fx = self.compute_passives()</p>
+<p class="p1"><span class="Apple-converted-space">            </span>base = base_fame_for_quality(q)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>gain = round(base * float(pinfo["mult"]) * float(fx["fame_mult"]), 1)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>wd["published"] = True</p>
+<p class="p1"><span class="Apple-converted-space">            </span>wd["platform"] = pinfo["label"]</p>
+<p class="p1"><span class="Apple-converted-space">            </span>wd["fame_gained"] = gain</p>
+<p class="p1"><span class="Apple-converted-space">            </span>wd["published_at"] = now_str()</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.s.fame = round(self.s.fame + gain, 1)</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("작품을 발표했다.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 제목: {wd['title']}")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 타입: {wd.get('wtype','?')}")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 퀄리티: {q} ({wd['grade']})")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 플랫폼: {pinfo['label']} (x{pinfo['mult']})")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 패시브 명성배율: x{fx['fame_mult']:.3f}")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f" - 획득 명성: +{fmt1(gain)}<span class="Apple-converted-space">  </span>(누적 명성: {fmt1(self.s.fame)})")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("그 ID의 작품을 찾지 못했어.")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def buy(self, cost: int):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>valid = {c for c, _name, _fx in AWARDS}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if cost not in valid:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("가격은 50, 500, 5000, 50000 중 하나만 가능해.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if self.s.fame &lt; cost:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"명성이 부족해. 필요: {cost}, 현재: {fmt1(self.s.fame)}")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.fame = round(self.s.fame - cost, 1)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.s.awards_owned[str(cost)] = int(self.s.awards_owned.get(str(cost), 0)) + 1</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>name = next(n for c, n, _fx in AWARDS if c == cost)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"{name}을(를) 구매했다. (-{cost} 명성)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"남은 명성: {fmt1(self.s.fame)}")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- ARCHIVE ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_help(self):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("=== 아카이브(전체 작품 열람) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive page &lt;n&gt;<span class="Apple-converted-space">            </span>: 30개씩 페이지 보기 (1=가장 최근)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive show &lt;id&gt; <span class="Apple-converted-space">          </span>: 특정 작품 상세 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive find &lt;키워드&gt;<span class="Apple-converted-space">        </span>: 제목 검색(부분 일치)")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive filter type &lt;타입&gt; <span class="Apple-converted-space">  </span>: 타입별 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive filter pub &lt;y|n&gt; <span class="Apple-converted-space">    </span>: 발표(y)/미발표(n)만 보기")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("archive sort &lt;new|old|q|fame&gt;: 정렬 기준 설정(아카이브 출력에 적용)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def _sorted_items(self, items: List[dict]) -&gt; List[dict]:</p>
+<p class="p1"><span class="Apple-converted-space">        </span>m = self.archive_sort_mode</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if m == "new":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return sorted(items, key=lambda w: int(w.get("id", 0)), reverse=True)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if m == "old":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return sorted(items, key=lambda w: int(w.get("id", 0)))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if m == "q":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return sorted(items, key=lambda w: (int(w.get("quality", 0)), int(w.get("id", 0))), reverse=True)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if m == "fame":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return sorted(items, key=lambda w: (float(w.get("fame_gained", 0.0)), int(w.get("id", 0))), reverse=True)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return items</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_page(self, page: int):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not self.s.works:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("아직 작품이 없어.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if page &lt; 1:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("페이지는 1 이상이야.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>items = self._sorted_items(list(self.s.works))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>total = len(items)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>per = self.archive_page_size</p>
+<p class="p1"><span class="Apple-converted-space">        </span>max_page = (total + per - 1) // per</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if page &gt; max_page:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(f"페이지 범위 초과. 최대 페이지: {max_page}")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>start = (page - 1) * per</p>
+<p class="p1"><span class="Apple-converted-space">        </span>end = min(start + per, total)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"=== 아카이브 페이지 {page}/{max_page} (정렬: {self.archive_sort_mode}) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in items[start:end]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(self._format_work_line(wd))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"(표시: {start+1}-{end} / 전체 {total})")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_show(self, wid: int):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in self.s.works:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if int(wd.get("id", -1)) == wid:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("=== 작품 상세 ===")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"ID: {wd['id']}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"제목: {wd['title']}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"타입: {wd.get('wtype','?')}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"생성일: {wd.get('created_at','')}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"퀄리티: {wd.get('quality','?')} ({wd.get('grade','')})")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say(f"상태: {'발표됨' if wd.get('published') else '미발표'}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>if wd.get("published"):</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>self.say(f"플랫폼: {wd.get('platform','')}")</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>self.say(f"발표일: {wd.get('published_at','')}")</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>self.say(f"획득 명성: +{fmt1(float(wd.get('fame_gained', 0.0)))}")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("그 ID의 작품을 찾지 못했어.")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_find(self, keyword: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>kw = (keyword or "").strip()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not kw:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("예: archive find 고양이")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = [w for w in self.s.works if kw.lower() in str(w.get("title", "")).lower()]</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = self._sorted_items(hits)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"=== 검색 결과: '{kw}' ({len(hits)}개) (정렬: {self.archive_sort_mode}) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in hits[:100]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(self._format_work_line(wd))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if len(hits) &gt; 100:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("(검색 결과가 많아서 100개까지만 표시)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_filter_type(self, t_raw: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>t = normalize_type(t_raw)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if t is None:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("타입을 못 알아먹었어.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("가능 타입: " + ", ".join(BLUEPRINT_TYPES))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = [w for w in self.s.works if w.get("wtype") == t]</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = self._sorted_items(hits)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"=== 타입 필터: {t} ({len(hits)}개) (정렬: {self.archive_sort_mode}) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in hits[:200]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(self._format_work_line(wd))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if len(hits) &gt; 200:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("(결과가 많아서 200개까지만 표시)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_filter_pub(self, yn: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>s = (yn or "").strip().lower()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if s not in ("y", "n"):</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("예: archive filter pub y<span class="Apple-converted-space">  </span>(또는 n)")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>want = (s == "y")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = [w for w in self.s.works if bool(w.get("published")) == want]</p>
+<p class="p1"><span class="Apple-converted-space">        </span>hits = self._sorted_items(hits)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>label = "발표" if want else "미발표"</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"=== 상태 필터: {label} ({len(hits)}개) (정렬: {self.archive_sort_mode}) ===")</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for wd in hits[:200]:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say(self._format_work_line(wd))</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if len(hits) &gt; 200:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("(결과가 많아서 200개까지만 표시)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def archive_sort(self, mode: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>m = (mode or "").strip().lower()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if m not in ("new", "old", "q", "fame"):</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("예: archive sort new | old | q | fame")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.archive_sort_mode = m</p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say(f"아카이브 정렬을 '{m}'로 설정했어. (archive page 1)")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>def handle_archive(self, args: List[str]):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not args:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.archive_help()</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>sub = args[0].lower()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if sub == "page":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 2:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: archive page 1")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>p = int(args[1])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>except ValueError:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("페이지는 숫자야.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.archive_page(p)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if sub == "show":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 2:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: archive show 12")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>wid = int(args[1])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>except ValueError:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("ID는 숫자야.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.archive_show(wid)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if sub == "find":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.archive_find(" ".join(args[1:]))</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if sub == "filter":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 3:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: archive filter type 서정")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("<span class="Apple-converted-space">    </span>archive filter pub y")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>kind = args[1].lower()</p>
+<p class="p1"><span class="Apple-converted-space">            </span>rest = " ".join(args[2:])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if kind == "type":</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.archive_filter_type(rest)</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if kind == "pub":</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.archive_filter_pub(rest)</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("filter 종류는 type 또는 pub만 지원해.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if sub == "sort":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 2:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: archive sort q")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.archive_sort(args[1])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>self.say("아카이브 명령을 못 알아먹었어. archive 로 도움말을 봐줘.")</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span># ---------- Web entrypoint: one-line command processing ----------</p>
+<p class="p1"><span class="Apple-converted-space">    </span>def process(self, cmdline: str):</p>
+<p class="p1"><span class="Apple-converted-space">        </span>cmdline = (cmdline or "").strip()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if not cmdline:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>parts = cmdline.split()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>cmd = parts[0].lower()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>args = parts[1:]</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if cmd in ("quit", "exit", "q"):</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("웹 버전에선 quit이 필요 없지만… 종료 기분만 냈다.")</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "help":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.help()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "status":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.status()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "effects":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.show_effects()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "train":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.train()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "inspire":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.inspire()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "blueprints":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.show_blueprints()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "write":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 2:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: write 서정 비 오는 날의 무릎")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>wtype_raw = args[0]</p>
+<p class="p1"><span class="Apple-converted-space">            </span># 제목은 공백 포함 가능 (원본과 동일한 정책)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>title = cmdline.split(None, 2)[2]</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.write(wtype_raw, title)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "works":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.list_works_recent()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "archive":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.handle_archive(args)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "platforms":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.show_platforms()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "publish":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if len(args) &lt; 2:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: publish 3 대형서점")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>wid = int(args[0])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>except ValueError:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("작품 ID는 숫자야.")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>platform_raw = "".join(args[1:])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.publish(wid, platform_raw)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "awards":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.show_awards()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "buy":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if not args:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: buy 5000")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>try:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>cost = int(args[0])</p>
+<p class="p1"><span class="Apple-converted-space">            </span>except ValueError:</p>
+<p class="p1"><span class="Apple-converted-space">                </span>self.say("예: buy 50 / buy 500 / buy 5000 / buy 50000")</p>
+<p class="p1"><span class="Apple-converted-space">                </span>return</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.buy(cost)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "save":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.save()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>elif cmd == "load":</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.load()</p>
+<p class="p1"><span class="Apple-converted-space">        </span>else:</p>
+<p class="p1"><span class="Apple-converted-space">            </span>self.say("모르는 명령어야. help 를 쳐봐.")</p>
+<p class="p2"><br></p>
+<p class="p2"><br></p>
+<p class="p1">random.seed()</p>
+<p class="p1">G = Game()</p>
+<p class="p1">_log("=== 현대에서 시인 키우기 (Web) ===")</p>
+<p class="p1">_log("help / platforms / awards / effects / archive")</p>
+<p class="p1">_log("저장/로드: save / load (브라우저에 저장됨)")</p>
+<p class="p1">`;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>pyodide.runPython(py);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog("");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog("준비 완료.");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog('입력창에 "help"를 쳐봐.');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cmdEl.focus();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>function sendCommand() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!ready) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const cmd = cmdEl.value;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cmdEl.value = "";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cmdEl.focus();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!cmd.trim()) return;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog("");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>uiLog("&gt; " + cmd);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Pass string safely via JSON stringification</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const payload = JSON.stringify(cmd);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>pyodide.runPython(`G.process(${payload})`);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>sendBtn.addEventListener("click", sendCommand);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>cmdEl.addEventListener("keydown", (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (e.key === "Enter") sendCommand();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Expose logger to Python</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.uiLog = uiLog;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>boot();</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
